@@ -1,0 +1,15 @@
+# Downloaded packages: recreated by `npm install`
+node_modules/
+
+# Compiled code: recreated by `npm run build`
+dist/
+
+# Secrets: NEVER on GitHub
+.env
+.env.*
+!.env.example
+
+# System and log files
+.DS_Store
+*.log
+coverage/
