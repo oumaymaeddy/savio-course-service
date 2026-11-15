@@ -1,8 +1,8 @@
 import { CoursesService } from './courses.service';
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { CreateCourseDto } from './dto/create-course.dto';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 
-// Toutes les routes de ce contrôleur commencent par /courses
+
 @Controller('courses')
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
@@ -14,7 +14,7 @@ export class CoursesController {
     return this.coursesService.findAll();
   }
   @Get(':id') // GET /courses/1, /courses/2...
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.coursesService.findOne(id);
   }
   @Post() //Post/courses
@@ -22,3 +22,4 @@ export class CoursesController {
     return this.coursesService.create(dto);
   }
 }
+
