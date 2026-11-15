@@ -5,6 +5,7 @@ import type { Database } from '../db/db.module';
 import { courses } from '../db/schema';
 import type { Course } from '../db/schema';
 import { CreateCourseDto } from './dto/create-course.dto';
+import { UpdateCourseDto } from './dto/update-course.dto';
 
 @Injectable()
 export class CoursesService {
@@ -30,4 +31,31 @@ export class CoursesService {
     const [course] = await this.db.insert(courses).values(dto).returning();
     return course;
   }
+  // UPDATE courses SET ..., updated_at = now() WHERE id = $1 RETURNING *
+
+  async update(id: string, dto: UpdateCourseDto): Promise<Course>{
+    const [course] = await this.db
+    .update(courses)
+    .set({ ...dto, updatedAt: new Date()})
+    .where(eq(courses.id, id))
+    .returning();
+
+    if(!course){
+      throw new NotFoundException(`Course ${id} not found`);
+    }
+    return course;
+  }
+
+  async remove(id: string): Promise<void>{
+    const deleted = await this.db
+      .delete(courses)
+      .where(eq(courses.id, id))
+      .returning({ id: courses.id});
+    if (deleted.length == 0){
+      throw new NotFoundException(`Course ${id} not found`);
+    
+    }
+  }
+
+
 }

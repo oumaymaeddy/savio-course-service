@@ -1,7 +1,17 @@
 import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { UpdateCourseDto } from './dto/update-course.dto';
 
 @Controller('courses')
 export class CoursesController {
@@ -21,5 +31,20 @@ export class CoursesController {
   create(@Body() dto: CreateCourseDto) {
     return this.coursesService.create(dto);
   }
-}
+    // Called when the student clicks "Save" in the edit dialog
+  @Patch(':id') // PATCH /courses/<uuid>
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCourseDto,
+  ) {
+    return this.coursesService.update(id, dto);
+  }
 
+  // Called when the student confirms "Delete course"
+  @Delete(':id') // DELETE /courses/<uuid>
+  @HttpCode(204) // success, nothing to send back
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.coursesService.remove(id);
+  }
+
+}
