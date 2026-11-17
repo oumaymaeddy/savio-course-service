@@ -58,4 +58,24 @@ export class CoursesService {
       throw new NotFoundException(`Course ${id} not found`);
     }
   }
+  async archive(id: string): Promise<Course> {
+    return this.setArchivedAt(id, new Date());
+  }
+
+  async restore(id: string): Promise<Course> {
+    return this.setArchivedAt(id, null);
+  }
+
+  private async setArchivedAt(
+    id: string,
+    archivedAt: Date | null,
+  ): Promise<Course> {
+    const [course] = await this.db
+      .update(courses)
+      .set({ archivedAt, updatedAt: new Date() })
+      .where(eq(courses.id, id))
+      .returning();
+    if (!course) throw new NotFoundException(`Course ${id} not found`);
+    return course;
+  }
 }

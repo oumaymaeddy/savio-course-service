@@ -36,6 +36,15 @@ export class CoursesController {
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCourseDto) {
     return this.coursesService.update(id, dto);
   }
+  @Patch(':id/archive')
+  archive(@Param('id', ParseUUIDPipe) id: string) {
+    return this.coursesService.archive(id);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id', ParseUUIDPipe) id: string) {
+    return this.coursesService.restore(id);
+  }
 
   // Called when the student confirms "Delete course"
   @Delete(':id') // DELETE /courses/<uuid>
