@@ -13,7 +13,8 @@ export const courses = pgTable('courses', {
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
 });
 
 // TypeScript type of a course, deduced from the table
-export type Course = typeof courses.$inferSelect; //TypeScript déduit le type Course à partir de la table
+export type Course = typeof courses.$inferSelect;
