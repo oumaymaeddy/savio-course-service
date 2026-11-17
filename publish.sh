@@ -16,9 +16,10 @@ git push origin main
 for entry in "${SHARED[@]}"; do
   folder="${entry%%:*}"
   remote="${entry##*:}"
+  branch="export-$folder"
   echo "→ Organization: $folder"
-  git subtree split --prefix="$folder" -b "export-$folder"
-  git push "$remote" "export-$folder:main"
+  git branch -D "$branch" 2>/dev/null || true   # remove a leftover branch, if any
+  git subtree split --prefix="$folder" -b "$branch"
+  git push "$remote" "$branch:main"
+  git branch -D "$branch"                        # clean up the temporary branch
 done
-
-echo "✅ Done"
