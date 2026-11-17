@@ -31,12 +31,9 @@ export class CoursesController {
   create(@Body() dto: CreateCourseDto) {
     return this.coursesService.create(dto);
   }
-    // Called when the student clicks "Save" in the edit dialog
+  // Called when the student clicks "Save" in the edit dialog
   @Patch(':id') // PATCH /courses/<uuid>
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateCourseDto,
-  ) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCourseDto) {
     return this.coursesService.update(id, dto);
   }
 
@@ -46,5 +43,4 @@ export class CoursesController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.coursesService.remove(id);
   }
-
 }
