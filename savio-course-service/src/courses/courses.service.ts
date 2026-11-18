@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, isNotNull, isNull } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import { courses } from '../db/schema';
@@ -13,8 +13,14 @@ export class CoursesService {
   constructor(@Inject(DB) private readonly db: Database) {}
 
   // SELECT * FROM courses ORDER BY created_at DESC
-  async findAll(): Promise<Course[]> {
-    return this.db.select().from(courses).orderBy(desc(courses.createdAt));
+  async findAll(archived = false): Promise<Course[]> {
+    return this.db
+      .select()
+      .from(courses)
+      .where(
+        archived ? isNotNull(courses.archivedAt) : isNull(courses.archivedAt),
+      )
+      .orderBy(desc(courses.createdAt));
   }
 
   // SELECT * FROM courses WHERE id = $1

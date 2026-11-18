@@ -7,9 +7,11 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseBoolPipe,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
@@ -19,9 +21,11 @@ export class CoursesController {
 
   // Répond à une requête GET /courses
   @Get()
-  findAll() {
-    // Demande au service de retourner tous les cours
-    return this.coursesService.findAll();
+  findAll(
+    @Query('archived', new ParseBoolPipe({ optional: true }))
+    archived?: boolean,
+  ) {
+    return this.coursesService.findAll(archived);
   }
   @Get(':id') // GET /courses/1, /courses/2...
   findOne(@Param('id', ParseUUIDPipe) id: string) {
