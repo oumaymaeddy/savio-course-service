@@ -78,4 +78,60 @@ describe('CoursesService', () => {
       );
     });
   });
+  describe('create', () => {
+    it('inserts the course and returns it', async () => {
+      const query = mockQuery([course]);
+      db.insert.mockReturnValue(query);
+      const dto = {
+        name: 'Linear Algebra',
+        code: 'MAT1342',
+        term: 'Winter 2027',
+      };
+
+      await expect(service.create(dto)).resolves.toEqual(course);
+      expect(query.values).toHaveBeenCalledWith(dto);
+    });
+  });
+
+  describe('update', () => {
+    it('saves the changes and refreshes updatedAt', async () => {
+      const updated = { ...course, term: 'Fall 2027' };
+      const query = mockQuery([updated]);
+      db.update.mockReturnValue(query);
+
+      await expect(
+        service.update(course.id, { term: 'Fall 2027' }),
+      ).resolves.toEqual(updated);
+
+      const [changes] = query.set.mock.calls[0] as [
+        { term: string; updatedAt: Date },
+      ];
+      expect(changes.term).toBe('Fall 2027');
+      expect(changes.updatedAt).toBeInstanceOf(Date);
+    });
+
+    it('throws NotFoundException when the course does not exist', async () => {
+      db.update.mockReturnValue(mockQuery([]));
+
+      await expect(
+        service.update('unknown-id', { term: 'Fall 2027' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('remove', () => {
+    it('deletes the course', async () => {
+      db.delete.mockReturnValue(mockQuery([{ id: course.id }]));
+
+      await expect(service.remove(course.id)).resolves.toBeUndefined();
+    });
+
+    it('throws NotFoundException when nothing was deleted', async () => {
+      db.delete.mockReturnValue(mockQuery([]));
+
+      await expect(service.remove('unknown-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 });
