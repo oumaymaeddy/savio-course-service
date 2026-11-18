@@ -134,4 +134,40 @@ describe('CoursesService', () => {
       );
     });
   });
+  describe('archive', () => {
+    it('sets archivedAt to the current date', async () => {
+      const archived = { ...course, archivedAt: new Date() };
+      const query = mockQuery([archived]);
+      db.update.mockReturnValue(query);
+
+      await expect(service.archive(course.id)).resolves.toEqual(archived);
+
+      const [changes] = query.set.mock.calls[0] as [
+        { archivedAt: Date | null },
+      ];
+      expect(changes.archivedAt).toBeInstanceOf(Date);
+    });
+
+    it('throws NotFoundException when the course does not exist', async () => {
+      db.update.mockReturnValue(mockQuery([]));
+
+      await expect(service.archive('unknown-id')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('restore', () => {
+    it('clears archivedAt', async () => {
+      const query = mockQuery([course]);
+      db.update.mockReturnValue(query);
+
+      await expect(service.restore(course.id)).resolves.toEqual(course);
+
+      const [changes] = query.set.mock.calls[0] as [
+        { archivedAt: Date | null },
+      ];
+      expect(changes.archivedAt).toBeNull();
+    });
+  });
 });
