@@ -1,160 +1,94 @@
-# Savio – Course Service
+# Savio
 
-[![Course service CI](https://github.com/oumaymaeddy/savio-platform/actions/workflows/course-service.yml/badge.svg)](https://github.com/oumaymaeddy/savio-platform/actions/workflows/course-service.yml)
+**Savio** is a study platform for students. A student creates a space for each course, uploads their course material (PDF notes, slides), and can then ask questions about it and get answers with links back to the source pages, or generate summaries to review faster.
 
-REST API that lets students manage their courses in **Savio**, a study platform for francophone and bilingual students.
-It is the first service of a microservices architecture: this service owns everything about courses and their data.
+It is designed for **francophone and bilingual students in Canada**, with French and English supported from the start.
 
-## Features
+> 🚧 **Status: in active development.** Savio is being built as a microservices platform, one service at a time. The course service is working today; the other services are being added in this repository.
 
-- Create, list, read, update and delete courses
-- **Archive / restore** a course without losing it (soft delete with an `archived_at` date)
-- The main list shows active courses only; archived ones are available with `?archived=true`
-- Input validation with clear `400` errors, `404` when a course does not exist
-- Unit tests and continuous integration on every push
+---
 
-## Tech stack
+## Architecture
 
-- **NestJS 11** (TypeScript)
-- **PostgreSQL 16** running in **Docker Compose**
-- **Drizzle ORM** + **Drizzle Kit** for the schema and SQL migrations
-- **class-validator** for request validation
-- **Jest** for unit tests
-- **ESLint** + **Prettier**
-- **GitHub Actions** for CI (lint, tests, build)
+Savio is split into small services. Each one owns its own data and one area of the app, and they talk to each other through REST (for things the user waits for) and events (for background work).
+
+```mermaid
+flowchart LR
+    Web[Web app<br/>Next.js + Vuexy] --> GW[API Gateway]
+    GW --> Auth[Auth service<br/>NestJS]
+    GW --> Course[Course service<br/>NestJS]
+    GW --> Doc[Document service<br/>NestJS]
+    GW --> AI[AI service<br/>FastAPI]
+    Doc -- document.uploaded --> MQ[(RabbitMQ)]
+    MQ --> AI
+    Course --> PG[(PostgreSQL)]
+    Auth --> PG
+    Doc --> PG
+    AI --> PG
+```
+
+| Service                                          | Responsibility                                           | Tech                            | Status                  |
+| ------------------------------------------------ | -------------------------------------------------------- | ------------------------------- | ----------------------- |
+| [`savio-course-service`](./savio-course-service) | Create, list, update and delete courses                  | NestJS, Drizzle ORM, PostgreSQL | ✅ In progress, working |
+| Auth service                                     | Sign-up, login, profiles, JWT                            | NestJS                          | 🔜 Planned              |
+| Document service                                 | File uploads, storage, processing status                 | NestJS, S3 / MinIO              | 🔜 Planned              |
+| AI service                                       | Text extraction, embeddings, Q&A with sources, summaries | Python, FastAPI, pgvector       | 🔜 Planned              |
+| API Gateway                                      | Single entry point, routing, JWT check, rate limiting    | —                               | 🔜 Planned              |
+| Web app                                          | Student dashboard and course pages                       | Next.js, TypeScript, Vuexy      | 🔜 Planned              |
+
+**Design principles**
+
+- Each service has its own database schema; no service reads another service's tables.
+- Long tasks (processing an uploaded PDF) run in the background through events, not inside a user request.
+- Every service runs in Docker, so the whole platform can start locally with Docker Compose.
+
+---
+
+## Repository structure
+
+```
+savio-platform/
+└── savio-course-service/   # Course management API (NestJS + PostgreSQL)
+```
+
+New services are added as sibling folders as they are built.
+
+---
 
 ## Getting started
 
-Requirements: Node.js 20+, Docker Desktop.
+Each service has its own setup. To run the course service:
 
 ```bash
-# 1. Install dependencies
+cd savio-course-service
 npm install
-
-# 2. Create your local config
-cp .env.example .env
-
-# 3. Start PostgreSQL
-docker compose up -d
-
-# 4. Create the tables
-npm run db:migrate
-
-# 5. Start the service (watch mode)
-npm run start:dev
+docker compose up -d      # starts PostgreSQL
+npm run start:dev         # API on http://localhost:3001
 ```
 
-The API runs on `http://localhost:3001`.
-`GET /` returns a health check with the current database time.
+### Course service API
 
-## API
+| Method   | Route          | Description                                                   |
+| -------- | -------------- | ------------------------------------------------------------- |
+| `GET`    | `/courses`     | List all courses (newest first)                               |
+| `GET`    | `/courses/:id` | Get one course                                                |
+| `POST`   | `/courses`     | Create a course (`name` required, `code` and `term` optional) |
+| `PATCH`  | `/courses/:id` | Update a course                                               |
+| `DELETE` | `/courses/:id` | Delete a course                                               |
 
-| Method | Route                    | Description                | Success |
-| ------ | ------------------------ | -------------------------- | ------- |
-| GET    | `/courses`               | List active courses        | 200     |
-| GET    | `/courses?archived=true` | List archived courses      | 200     |
-| GET    | `/courses/:id`           | Get one course             | 200     |
-| POST   | `/courses`               | Create a course            | 201     |
-| PATCH  | `/courses/:id`           | Update some fields         | 200     |
-| PATCH  | `/courses/:id/archive`   | Archive a course           | 200     |
-| PATCH  | `/courses/:id/restore`   | Restore an archived course | 200     |
-| DELETE | `/courses/:id`           | Delete a course            | 204     |
+Input is validated (unknown fields are rejected), and missing courses return `404`.
 
-`:id` must be a UUID and `archived` must be `true` or `false`, otherwise the API returns `400`.
-
-### Course fields
-
-| Field  | Type   | Rules                                            |
-| ------ | ------ | ------------------------------------------------ |
-| `name` | string | required, max 80 characters                      |
-| `code` | string | optional, max 20 characters (e.g. `MAT1342`)     |
-| `term` | string | optional, max 40 characters (e.g. `Winter 2027`) |
-
-`id`, `createdAt`, `updatedAt` and `archivedAt` are set by the server.
-Unknown fields are rejected with `400`.
-
-### Examples
-
-```bash
-# Create
-curl -i -X POST http://localhost:3001/courses \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Linear Algebra","code":"MAT1342","term":"Winter 2027"}'
-
-# List active courses
-curl -i http://localhost:3001/courses
-
-# Update
-curl -i -X PATCH http://localhost:3001/courses/$ID \
-  -H "Content-Type: application/json" \
-  -d '{"term":"Fall 2027"}'
-
-# Archive, then list archived courses
-curl -i -X PATCH http://localhost:3001/courses/$ID/archive
-curl -i "http://localhost:3001/courses?archived=true"
-
-# Delete
-curl -i -X DELETE http://localhost:3001/courses/$ID
-```
-
-## Testing
-
-```bash
-npm test              # unit tests
-npm run lint:check    # lint without auto-fix (same as CI)
-```
-
-Unit tests cover the controller and every `CoursesService` rule (not-found errors, archive/restore, updated timestamps) with a mocked database, so they run in under a second without Docker.
-
-## Database
-
-The schema lives in `src/db/schema.ts`.
-After changing it:
-
-```bash
-npm run db:generate   # creates a new SQL migration in drizzle/
-npm run db:migrate    # applies it to the database
-```
-
-## Project structure
-
-```
-src/
-├── main.ts                     # bootstrap + global validation
-├── app.module.ts               # root module (config, database, courses)
-├── db/
-│   ├── schema.ts               # courses table definition
-│   └── db.module.ts            # PostgreSQL pool + Drizzle client
-└── courses/
-    ├── courses.controller.ts   # HTTP routes
-    ├── courses.service.ts      # business logic + queries
-    ├── courses.service.spec.ts # unit tests
-    └── dto/                    # request validation rules
-drizzle/                        # SQL migrations
-```
-
-## Scripts
-
-| Command               | What it does                           |
-| --------------------- | -------------------------------------- |
-| `npm run start:dev`   | start in watch mode                    |
-| `npm run build`       | compile to `dist/`                     |
-| `npm test`            | run unit tests                         |
-| `npm run lint`        | run ESLint and fix what it can         |
-| `npm run lint:check`  | run ESLint without fixing (used in CI) |
-| `npm run format`      | run Prettier                           |
-| `npm run db:generate` | generate a migration                   |
-| `npm run db:migrate`  | apply migrations                       |
+---
 
 ## Roadmap
 
-- [x] Course CRUD with PostgreSQL
-- [x] Validation and error handling
-- [x] Migrations with Drizzle Kit
-- [x] Archive / restore courses
-- [x] Unit tests
-- [x] CI with GitHub Actions (lint, tests, build)
-- [ ] End-to-end tests on a dedicated test database
-- [ ] Search and sorting
-- [ ] Authentication: each student only sees their own courses
-- [ ] Document service (upload course material)
+- [x] Course API with validation
+- [x] PostgreSQL with Docker Compose and Drizzle migrations
+- [x] Full CRUD for courses
+- [ ] Auth service and per-user courses
+- [ ] Document upload service
+- [ ] AI service: questions with cited sources, summaries
+- [ ] Web app (Next.js + Vuexy)
+- [ ] API gateway and RabbitMQ events
+- [x] CI with GitHub Actions for each service
+- [ ] Beta with real students

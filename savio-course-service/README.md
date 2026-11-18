@@ -1,98 +1,160 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Savio – Course Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+[![Course service CI](https://github.com/oumaymaeddy/savio-platform/actions/workflows/course-service.yml/badge.svg)](https://github.com/oumaymaeddy/savio-platform/actions/workflows/course-service.yml)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+REST API that lets students manage their courses in **Savio**, a study platform for francophone and bilingual students.
+It is the first service of a microservices architecture: this service owns everything about courses and their data.
 
-## Description
+## Features
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Create, list, read, update and delete courses
+- **Archive / restore** a course without losing it (soft delete with an `archived_at` date)
+- The main list shows active courses only; archived ones are available with `?archived=true`
+- Input validation with clear `400` errors, `404` when a course does not exist
+- Unit tests and continuous integration on every push
 
-## Project setup
+## Tech stack
 
-```bash
-$ npm install
-```
+- **NestJS 11** (TypeScript)
+- **PostgreSQL 16** running in **Docker Compose**
+- **Drizzle ORM** + **Drizzle Kit** for the schema and SQL migrations
+- **class-validator** for request validation
+- **Jest** for unit tests
+- **ESLint** + **Prettier**
+- **GitHub Actions** for CI (lint, tests, build)
 
-## Compile and run the project
+## Getting started
+
+Requirements: Node.js 20+, Docker Desktop.
 
 ```bash
-# development
-$ npm run start
+# 1. Install dependencies
+npm install
 
-# watch mode
-$ npm run start:dev
+# 2. Create your local config
+cp .env.example .env
 
-# production mode
-$ npm run start:prod
+# 3. Start PostgreSQL
+docker compose up -d
+
+# 4. Create the tables
+npm run db:migrate
+
+# 5. Start the service (watch mode)
+npm run start:dev
 ```
 
-## Run tests
+The API runs on `http://localhost:3001`.
+`GET /` returns a health check with the current database time.
+
+## API
+
+| Method | Route                    | Description                | Success |
+| ------ | ------------------------ | -------------------------- | ------- |
+| GET    | `/courses`               | List active courses        | 200     |
+| GET    | `/courses?archived=true` | List archived courses      | 200     |
+| GET    | `/courses/:id`           | Get one course             | 200     |
+| POST   | `/courses`               | Create a course            | 201     |
+| PATCH  | `/courses/:id`           | Update some fields         | 200     |
+| PATCH  | `/courses/:id/archive`   | Archive a course           | 200     |
+| PATCH  | `/courses/:id/restore`   | Restore an archived course | 200     |
+| DELETE | `/courses/:id`           | Delete a course            | 204     |
+
+`:id` must be a UUID and `archived` must be `true` or `false`, otherwise the API returns `400`.
+
+### Course fields
+
+| Field  | Type   | Rules                                            |
+| ------ | ------ | ------------------------------------------------ |
+| `name` | string | required, max 80 characters                      |
+| `code` | string | optional, max 20 characters (e.g. `MAT1342`)     |
+| `term` | string | optional, max 40 characters (e.g. `Winter 2027`) |
+
+`id`, `createdAt`, `updatedAt` and `archivedAt` are set by the server.
+Unknown fields are rejected with `400`.
+
+### Examples
 
 ```bash
-# unit tests
-$ npm run test
+# Create
+curl -i -X POST http://localhost:3001/courses \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Linear Algebra","code":"MAT1342","term":"Winter 2027"}'
 
-# e2e tests
-$ npm run test:e2e
+# List active courses
+curl -i http://localhost:3001/courses
 
-# test coverage
-$ npm run test:cov
+# Update
+curl -i -X PATCH http://localhost:3001/courses/$ID \
+  -H "Content-Type: application/json" \
+  -d '{"term":"Fall 2027"}'
+
+# Archive, then list archived courses
+curl -i -X PATCH http://localhost:3001/courses/$ID/archive
+curl -i "http://localhost:3001/courses?archived=true"
+
+# Delete
+curl -i -X DELETE http://localhost:3001/courses/$ID
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Testing
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm test              # unit tests
+npm run lint:check    # lint without auto-fix (same as CI)
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Unit tests cover the controller and every `CoursesService` rule (not-found errors, archive/restore, updated timestamps) with a mocked database, so they run in under a second without Docker.
 
-## Resources
+## Database
 
-Check out a few resources that may come in handy when working with NestJS:
+The schema lives in `src/db/schema.ts`.
+After changing it:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+npm run db:generate   # creates a new SQL migration in drizzle/
+npm run db:migrate    # applies it to the database
+```
 
-## Support
+## Project structure
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```
+src/
+├── main.ts                     # bootstrap + global validation
+├── app.module.ts               # root module (config, database, courses)
+├── db/
+│   ├── schema.ts               # courses table definition
+│   └── db.module.ts            # PostgreSQL pool + Drizzle client
+└── courses/
+    ├── courses.controller.ts   # HTTP routes
+    ├── courses.service.ts      # business logic + queries
+    ├── courses.service.spec.ts # unit tests
+    └── dto/                    # request validation rules
+drizzle/                        # SQL migrations
+```
 
-## Stay in touch
+## Scripts
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+| Command               | What it does                           |
+| --------------------- | -------------------------------------- |
+| `npm run start:dev`   | start in watch mode                    |
+| `npm run build`       | compile to `dist/`                     |
+| `npm test`            | run unit tests                         |
+| `npm run lint`        | run ESLint and fix what it can         |
+| `npm run lint:check`  | run ESLint without fixing (used in CI) |
+| `npm run format`      | run Prettier                           |
+| `npm run db:generate` | generate a migration                   |
+| `npm run db:migrate`  | apply migrations                       |
 
-## License
+## Roadmap
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [x] Course CRUD with PostgreSQL
+- [x] Validation and error handling
+- [x] Migrations with Drizzle Kit
+- [x] Archive / restore courses
+- [x] Unit tests
+- [x] CI with GitHub Actions (lint, tests, build)
+- [ ] End-to-end tests on a dedicated test database
+- [ ] Search and sorting
+- [ ] Authentication: each student only sees their own courses
+- [ ] Document service (upload course material)
